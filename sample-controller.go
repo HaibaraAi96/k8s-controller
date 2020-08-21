@@ -60,6 +60,8 @@ const (
 
 // Controller is the controller implementation for Foo resources
 type Controller struct {
+	// Clientset contains the clients for groups. Each group has exactly one version included in a Clientset
+	// It holds k8s client interface which helps the controller interact with k8s API server
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
 	// sampleclientset is a clientset for our own API group
@@ -141,12 +143,16 @@ func NewController(
 	return controller
 }
 
+// We construct the controller using the Workqueue and Informer above
+// now we will start controller by calling Run() function
 // Run will set up the event handlers for types we are interested in, as well
 // as syncing informer caches and starting workers. It will block until stopCh
 // is closed, at which point it will shutdown the workqueue and wait for
 // workers to finish processing their current work items.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
+	// don't let panics crash the process
 	defer utilruntime.HandleCrash()
+	// make sure the work queue is shutdown which will trigger workers to end
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
@@ -161,6 +167,8 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	klog.Info("Starting workers")
 	// Launch two workers to process Foo resources
 	for i := 0; i < threadiness; i++ {
+		// runWorker will loop until "something bad" happens. 
+		// The .Util will then rekick the worker after one second
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
@@ -171,17 +179,21 @@ func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) error {
 	return nil
 }
 
+// At this step, the Informer starts watching for pods in the cluster and sends their keys to the Workqueue
+// The next step we must define how the worker(s) pops up and processes keys
 // runWorker is a long-running function that will continually call the
 // processNextWorkItem function in order to read and process a message on the
 // workqueue.
 func (c *Controller) runWorker() {
 	for c.processNextWorkItem() {
+		// continue looping
 	}
 }
 
 // processNextWorkItem will read a single work item off the workqueue and
 // attempt to process it, by calling the syncHandler.
 func (c *Controller) processNextWorkItem() bool {
+	// pull the next work item from queue. It should be a key we use to lookup something in a cache
 	obj, shutdown := c.workqueue.Get()
 
 	if shutdown {
