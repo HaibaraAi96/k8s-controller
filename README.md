@@ -69,7 +69,7 @@ type ResourceEventHandlerFuncs struct {
 - Events are collapsed by key so each consumer can use worker(s) to pop key up and this work is done sequentially. This will gurantee that no two workers will work on the same key at the same time
 
 The following is an example for creating a rate limiting queue:
-```
+```go
 queue :=
 workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 ```
