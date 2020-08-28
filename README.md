@@ -9,10 +9,21 @@ In Kubernetes, a controller will send messages to the API server that have usefu
 
 Kubernetes comes with a set of built-in controllers that run inside the kube-controller-manager. These built-in controllers provide important core behaviors.
 
+##### This repo shows how to build a custom controller that watches changes for Pods and log what node it's scheduled on
+
+## The approach
+We create a custom controller that does the following:
+
+- Continuously watch the API server for Pods changes.
+- When it detects a change in our ConfigMap it searches for all the Pods that have app=frontend label and deletes them.
+- Because our application is deployed through a Deployment controller, all deleted Pods are automatically started again.
+
 
 
 ## client-go
-The [client-go](https://github.com/kubernetes/client-go/blob/master/INSTALL.md#enabling-go-modules) library provides access to Kubernetes RESTful API interface served by the Kubernetes API server.
+The library contains several important packages and utilities which can be used for accessing the API resources or facilitate a custom controller.
+
+The [client-go](https://github.com/kubernetes/client-go/blob/master/INSTALL.md#enabling-go-modules) library provides access to Kubernetes RESTful API interface served by the Kubernetes API server. Tools like kubectl or prometheus-operator use it intensively.
 
 We will use client-go library to get access to k8s RESTful API interface served by k8s API server.
 
@@ -21,6 +32,7 @@ $ go mod init goelster
 $ go get k8s.io/client-go@v0.17.0
 ```
 At this point, I have go.mod and go.sum in my repo
+
 
 ## Controller structure
 The simplest implementation of a controller is a loop:
@@ -87,3 +99,5 @@ There are two reasons that the controller should wait until **the cache is compl
 
 #### After we have an overview of the elements involved in a Kubernetes controller, we can start writing a Kubernetes custom controller!
 
+## Testing Our Work
+To confirm that our custom controller is working, we need to make and apply a change to the ConfigMap. 
