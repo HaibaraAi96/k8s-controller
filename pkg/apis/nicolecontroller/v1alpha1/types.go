@@ -35,11 +35,13 @@ type Icecream struct {
 // IcecreamSpec is the spec for an Icecream resource
 type IcecreamSpec struct {
 	DeploymentName string `json:"deploymentName"`
+	NodeName string `json:"nodeName"`
 	Replicas       *int32 `json:"replicas"`
 }
 
 // IcecreamStatus is the status for a Icecream resource
 type IcecreamStatus struct {
+	CurrentNodeName string `json:"currentNodeName"`
 	AvailableReplicas int32 `json:"availableReplicas"`
 }
 

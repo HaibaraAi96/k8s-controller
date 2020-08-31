@@ -106,7 +106,7 @@ func NewIcecreamController(
 	}
 
 	klog.Info("Setting up event handlers")
-	// Set up an event handler for when Foo resources change
+	// Set up an event handler for when Icecream resources change
 	icecreamInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.enqueueIcecream,
 		UpdateFunc: func(old, new interface{}) {
@@ -171,6 +171,7 @@ func (c *IcecreamController) Run(threadiness int, stopCh <-chan struct{}) error 
 // workqueue.
 func (c *IcecreamController) runWorker() {
 	for c.processNextWorkItem() {
+		klog.Infof("IcecreamController.runWorker: processing next item")
 	}
 }
 
@@ -208,7 +209,7 @@ func (c *IcecreamController) processNextWorkItem() bool {
 			return nil
 		}
 		// Run the syncHandler, passing it the namespace/name string of the
-		// Foo resource to be synced.
+		// Icecream resource to be synced.
 		if err := c.syncHandler(key); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
 			c.workqueue.AddRateLimited(key)
@@ -230,7 +231,7 @@ func (c *IcecreamController) processNextWorkItem() bool {
 }
 
 // syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Foo resource
+// converge the two. It then updates the Status block of the Icecream resource
 // with the current status of the resource.
 func (c *IcecreamController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
@@ -283,6 +284,19 @@ func (c *IcecreamController) syncHandler(key string) error {
 		c.recorder.Event(icecream, corev1.EventTypeWarning, IcecreamErrResourceExists, msg)
 		return fmt.Errorf(msg)
 	}
+
+	// If this number of the replicas on the Icecream resource is specified, and the
+	// number does not equal the current desired replicas on the Deployment, we
+	// should update the Deployment resource.
+	nodeName := icecream.Spec.NodeName
+	if nodeName == "" {
+		// We choose to absorb the error here as the worker would requeue the
+		// resource otherwise. Instead, the next time the resource is updated
+		// the resource will be queued again.
+		utilruntime.HandleError(fmt.Errorf("%s: node name must be specified", key))
+		return nil
+	}
+	klog.Infof("HERE - NodeName: %s", icecream.Spec.NodeName)
 
 	// If this number of the replicas on the Icecream resource is specified, and the
 	// number does not equal the current desired replicas on the Deployment, we
