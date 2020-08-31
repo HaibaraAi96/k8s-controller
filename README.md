@@ -2,6 +2,8 @@
 
 Write a Kubernetes custom controllers in Go
 
+Controllers are an essential part of Kubernetes. They are the “brains” behind the resources themselves. 
+
 The controller for a resource are responsible for making the current state come closer to the desired state. It is an active reconciliation process that watches the
 shared state of the cluster through the API server and makes changes to move the current state towards the desired state.
 
@@ -18,6 +20,28 @@ We create a custom controller that does the following:
 - When it detects a change in our ConfigMap it searches for all the Pods that have app=frontend label and deletes them.
 - Because our application is deployed through a Deployment controller, all deleted Pods are automatically started again.
 
+## Controller overview
+Kubernetes has a very “pluggable” way to add your own logic in the form of a controller. A controller is a component that you can develop and run in the context of a Kubernetes cluster.
+
+Controllers are an essential part of Kubernetes. They are the “brains” behind the resources themselves.
+
+You can have a custom controller without a custom resource (e.g. custom logic on native resource types like Pods and Deployments). Conversely, you can have custom resources without a controller, but that is a glorified data store with no custom logic behind it.
+
+## Controller event flow
+The controller “subscribes” to a queue. The controller worker is going to block on a call to get the next item from the queue.
+
+An event is the combination of an action (create, update, or delete) and a resource key (typically in the format of namespace/name).
+
+The informer is the “link” to the part of Kubernetes that is tasked with handing out these events, as well as retrieving the resources in the cluster to focus on. Put another way, the informer is the proxy between Kubernetes and your controller (and the queue is the store for it).
+
+Part of the informer’s responsibility is to register event handlers for the three different types of events: Add, update, and delete. It is in those informer’s event handler functions that we add the key to the queue to pass off logic to the controller’s handlers.
+
+## Controller: Core resources v.s. Custom resources
+There are two types of resources that controllers can “watch”: Core resources and custom resources. Core resources are what Kubernetes ship with (for instance: Pods).
+
+Handling core resource events is interesting, and a great way to understand the basic mechanisms of controllers, informers, and queues. But the use-cases are limited. The real power and flexibility with controllers is when you can start working with custom resources.
+
+You can think of custom resources as the data, and controllers as the logic behind the data. Working together, they are a significant component to extending Kubernetes.
 
 
 ## client-go
