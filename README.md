@@ -4,21 +4,19 @@ Write a Kubernetes custom controllers in Go
 
 Controllers are an essential part of Kubernetes. They are the “brains” behind the resources themselves. 
 
-The controller for a resource are responsible for making the current state come closer to the desired state. It is an active reconciliation process that watches the
-shared state of the cluster through the API server and makes changes to move the current state towards the desired state.
+The controller for a resource are responsible for making the current state come closer to the desired state. It is an active reconciliation process that watches the shared state of the cluster through the API server and makes changes to move the current state towards the desired state.
 
 In Kubernetes, a controller will send messages to the API server that have useful side effects.
 
-Kubernetes comes with a set of built-in controllers that run inside the kube-controller-manager. These built-in controllers provide important core behaviors.
+Kubernetes comes with a set of built-in controllers that run inside the kube-controller-manager. These built-in controllers provide important core behaviors. But one of the really great features of Kubernetes is the ability to extend it.
 
 ##### This repo shows how to build a custom controller that watches changes for Pods and log what node it's scheduled on
 
 ## The approach
 We create a custom controller that does the following:
 
-- Continuously watch the API server for Pods changes.
-- When it detects a change in our ConfigMap it searches for all the Pods that have app=frontend label and deletes them.
-- Because our application is deployed through a Deployment controller, all deleted Pods are automatically started again.
+- Continuously watch the API server for Pods changes
+- Log what node it's scheduled on for our customized resource "icecream"
 
 ## Controller overview
 Kubernetes has a very “pluggable” way to add your own logic in the form of a controller. A controller is a component that you can develop and run in the context of a Kubernetes cluster.
@@ -35,6 +33,7 @@ An event is the combination of an action (create, update, or delete) and a resou
 The informer is the “link” to the part of Kubernetes that is tasked with handing out these events, as well as retrieving the resources in the cluster to focus on. Put another way, the informer is the proxy between Kubernetes and your controller (and the queue is the store for it).
 
 Part of the informer’s responsibility is to register event handlers for the three different types of events: Add, update, and delete. It is in those informer’s event handler functions that we add the key to the queue to pass off logic to the controller’s handlers.
+
 
 ## Controller: Core resources v.s. Custom resources
 There are two types of resources that controllers can “watch”: Core resources and custom resources. Core resources are what Kubernetes ship with (for instance: Pods).
@@ -124,4 +123,37 @@ There are two reasons that the controller should wait until **the cache is compl
 #### After we have an overview of the elements involved in a Kubernetes controller, we can start writing a Kubernetes custom controller!
 
 ## Testing Our Work
-To confirm that our custom controller is working, we need to make and apply a change to the ConfigMap. 
+To confirm that our custom controller is working, we need to run:
+```sh
+$ kubectl apply -f artifacts/examples/crd-icecream.yaml
+
+$ kubectl apply -f artifacts/examples/example-icecream.yaml
+
+# we can view the resource
+$ kubectl get icecream
+NAME               AGE
+example-icecream   32s
+
+# run our application
+$ go build -o k8s-controller .
+$ ./k8s-controller -kubeconfig=$HOME/.kube/config
+I0831 13:28:06.675486   26724 icecream_controller.go:108] Setting up event handlers
+I0831 13:28:06.675594   26724 icecream_controller.go:148] Starting Icecream controller
+I0831 13:28:06.675598   26724 icecream_controller.go:151] Waiting for informer caches to sync
+I0831 13:28:06.975692   26724 icecream_controller.go:156] Starting workers
+I0831 13:28:06.975714   26724 icecream_controller.go:162] Started workers
+I0831 13:28:06.975748   26724 icecream_controller.go:299] HERE - NodeName: nicole-icecream
+I0831 13:28:07.049454   26724 icecream_controller.go:221] Successfully synced 'default/example-icecream'
+I0831 13:28:07.049467   26724 icecream_controller.go:174] IcecreamController.runWorker: processing next item
+I0831 13:28:07.049475   26724 icecream_controller.go:299] HERE - NodeName: nicole-icecream
+I0831 13:28:07.049810   26724 event.go:291] "Event occurred" object="default/example-icecream" kind="Icecream" apiVersion="controller.nicoleh.io/v1alpha1" type="Normal" reason="Synced" message="Icecream synced successfully"
+I0831 13:28:07.120629   26724 icecream_controller.go:221] Successfully synced 'default/example-icecream'
+I0831 13:28:07.120646   26724 icecream_controller.go:174] IcecreamController.runWorker: processing next item
+I0831 13:28:07.120711   26724 event.go:291] "Event occurred" object="default/example-icecream" kind="Icecream" apiVersion="controller.nicoleh.io/v1alpha1" type="Normal" reason="Synced" message="Icecream synced successfully"
+^CI0831 13:28:27.698249   26724 icecream_controller.go:164] Shutting down workers
+# we can see the nodeName is "nicole-icecream"
+
+$ kubectl get deployment
+NAME                                  READY   UP-TO-DATE   AVAILABLE   AGE
+example-icecream                      1/1     1            1           16s
+```
