@@ -35,14 +35,24 @@ type Icecream struct {
 // IcecreamSpec is the spec for an Icecream resource
 type IcecreamSpec struct {
 	DeploymentName string `json:"deploymentName"`
-	NodeName string `json:"nodeName"`
 	Replicas       *int32 `json:"replicas"`
+	Flavor         string `json:"flavor"`
 }
 
 // IcecreamStatus is the status for a Icecream resource
 type IcecreamStatus struct {
-	CurrentNodeName string `json:"currentNodeName"`
-	AvailableReplicas int32 `json:"availableReplicas"`
+	// PodIPs contains the IP of all pods with the corresponding flavor
+	// as specified in IcecreamSpec
+	PodIPs []string
+	// PodNames contains the name of all pods with the corresponding flavor
+	// as specified in IcecreamSpec
+	PodNames []string
+	// TotalAllocatedCPU contains the total allocated CPU for all pods with the corresponding
+	// flavor as specified in IcecreamSpec
+	TotalAllocatedCPU string
+	// TotalAllocatedMemory contains the total allocated memory for all pods with the
+	// corresponding flavor as specified in IcecreamSpec
+	TotalAllocatedMemory string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
