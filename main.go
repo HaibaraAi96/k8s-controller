@@ -64,6 +64,7 @@ func main() {
 	icecreamInformerFactory := icecreaminformers.NewSharedInformerFactory(icecreamClient, time.Second*30)
 
 	icecreamController := NewIcecreamController(kubeClient, icecreamClient,
+		kubeInformerFactory.Core().V1().Pods(),
 		kubeInformerFactory.Apps().V1().Deployments(),
 		icecreamInformerFactory.Samplecontroller().V1alpha1().Icecreams())
 
