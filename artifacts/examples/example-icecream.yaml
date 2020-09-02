@@ -4,5 +4,5 @@ metadata:
   name: example-icecream
 spec:
   deploymentName: example-icecream
-  nodeName: nicole-icecream
-  replicas: 1
+  replicas: 2
+  flavor: chocolate

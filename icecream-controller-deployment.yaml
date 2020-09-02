@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment                 
+metadata:
+  name: icecream-controller-deployment         
+spec:
+  replicas: 2                    # Number of pods to run at any given time
+  selector:
+    matchLabels:
+      app: icecream-controller        # This deployment applies to any Pods matching the specified label
+  template:                      # This deployment will create a set of pods using the configurations in this template
+    metadata:
+      labels:                    # The labels that will be applied to all of the pods in this deployment
+        app: icecream-controller 
+    spec:                        # Spec for the container which will run in the Pod
+      containers:
+      - name: icecream-controller
+        image: nicolehan1996/icecream-controller:forthversion
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8085  # Should match the port number that the Go application listens on
+
+# ---
+# apiVersion: v1
+# kind: Service                   
+# metadata:
+#     name: icecream-controller-service   
+# spec:
+#     type: LoadBalancer                 # A port is opened on each node in your cluster via Kube proxy.
+#     ports:                         # Take incoming HTTP requests on port 8085 and forward them to the targetPort of 8085
+#     - name: http
+#       protocol: TCP
+#       port: 8085
+#       targetPort: 8085
+#       nodePort: 30010
+#     selector:
+#         app: icecream-controller         # Map any pod with label `app=icecream-controller` to this service
