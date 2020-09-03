@@ -283,20 +283,21 @@ func (c *IcecreamController) syncHandler(key string) error {
 		return err
 	}
 
-	deploymentName := icecream.Spec.DeploymentName
-	if deploymentName == "" {
+	flavor := icecream.Spec.Flavor
+	if flavor == "" {
 		// We choose to absorb the error here as the worker would requeue the
 		// resource otherwise. Instead, the next time the resource is updated
 		// the resource will be queued again.
-		utilruntime.HandleError(fmt.Errorf("%s: deployment name must be specified", key))
+		utilruntime.HandleError(fmt.Errorf("%s: icecream's flavor must be specified", key))
 		return nil
 	}
 
-	// Get the deployment with the name specified in Icecream.spec
-	deployment, err := c.deploymentsLister.Deployments(icecream.Namespace).Get(deploymentName)
+	// Get the deployment with the name specified
+	deployment, err := c.deploymentsLister.Deployments(icecream.Namespace).Get("icecream-deployment")
 	// If the resource doesn't exist, we'll create it
 	if errors.IsNotFound(err) {
 		deployment, err = c.kubeclientset.AppsV1().Deployments(icecream.Namespace).Create(context.TODO(), newIcecreamDeployment(icecream), metav1.CreateOptions{})
+		klog.Infof("New deployment succesfully created: %v", deployment.GetName())
 	}
 
 	// If an error occurs during Get/Create, we'll requeue the item so we can
@@ -314,60 +315,31 @@ func (c *IcecreamController) syncHandler(key string) error {
 		return fmt.Errorf(msg)
 	}
 
-	flavor := icecream.Spec.Flavor
-	if flavor == "" {
-		// We choose to absorb the error here as the worker would requeue the
-		// resource otherwise. Instead, the next time the resource is updated
-		// the resource will be queued again.
-		utilruntime.HandleError(fmt.Errorf("%s: icecream's flavor must be specified", key))
-		return nil
-	}
-
-	// Get pods managed by the deployment
-	selector, err := metav1.LabelSelectorAsSelector(deployment.Spec.Selector)
+	// Get pods in the same namespace
+	pods, err := c.podsLister.Pods(namespace).List(labels.Everything())
 	if err != nil {
-		klog.Infof("Error while setting up the selector: %v", err)
-		return nil
-	}
-	klog.Infof("selector is %v", selector)
-
-	pods, err := c.podsLister.Pods(namespace).List(selector)
-	if err != nil {
-		klog.Infof("Error while listing matching pods: %v", err)
+		klog.Infof("Error while listing pods in the same namespace: %v", err)
 		return nil
 	}
 	if len(pods) == 0 {
-		klog.Infof("WARNING - No pods available")
+		klog.Infof("ERROR - No pods available")
 		return nil
 	}
 
 	// Get selected pods in the same namespace with the matching label based on "flavor"
 	var selectedPods []*v1.Pod
 	for _, pod := range pods {
-		if selector.Empty() || !selector.Matches(labels.Set(pod.Labels)) {
-			continue
+		for key, value := range pod.Labels {
+			if key == "ice-cream-flavor" && value == flavor {
+				selectedPods = append(selectedPods, pod)
+				continue
+			}
 		}
-		selectedPods = append(selectedPods, pod)
 	}
 
 	if len(selectedPods) == 0 {
-		klog.Infof("ERROR - could not find matching pods in the same namespace with maching labels")
+		klog.Infof("ERROR - Could not find matching pods in the same namespace with maching labels")
 		return nil
-	}
-
-	// If replicas on the Icecream resource is specified, and the
-	// number does not equal the current desired replicas on the Deployment, we
-	// should update the Deployment resource.
-	if icecream.Spec.Replicas != nil && *icecream.Spec.Replicas != *deployment.Spec.Replicas {
-		klog.Infof("Icecream %s replicas: %d, deployment replicas: %d", name, *icecream.Spec.Replicas, *deployment.Spec.Replicas)
-		deployment, err = c.kubeclientset.AppsV1().Deployments(icecream.Namespace).Update(context.TODO(), newIcecreamDeployment(icecream), metav1.UpdateOptions{})
-	}
-
-	// If an error occurs during Update, we'll requeue the item so we can
-	// attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
-	if err != nil {
-		return err
 	}
 
 	// Finally, we update the status block of the Icecream resource to reflect the
@@ -484,17 +456,18 @@ func newIcecreamDeployment(icecream *nicolev1alpha1.Icecream) *appsv1.Deployment
 	}
 	limitCPU := "500m"
 	limitMem := "128Mi"
+	replicas := int32(3)
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      icecream.Spec.DeploymentName,
+			Name:      "icecream-deployment",
 			Namespace: icecream.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(icecream, nicolev1alpha1.SchemeGroupVersion.WithKind("Icecream")),
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: icecream.Spec.Replicas,
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
