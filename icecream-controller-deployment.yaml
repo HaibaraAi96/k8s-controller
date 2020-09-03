@@ -14,10 +14,10 @@ spec:
     spec:                        # Spec for the container which will run in the Pod
       containers:
       - name: icecream-controller
-        image: nicolehan1996/icecream-controller:forthversion
+        image: nicolehan1996/icecream-controller:fifthversion
         imagePullPolicy: Always
         ports:
-          - containerPort: 8085  # Should match the port number that the Go application listens on
+          - containerPort: 8087  # Should match the port number that the Go application listens on
 
 # ---
 # apiVersion: v1
