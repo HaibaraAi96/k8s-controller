@@ -3,6 +3,4 @@ kind: Icecream
 metadata:
   name: example-icecream
 spec:
-  deploymentName: example-icecream
-  replicas: 2
   flavor: chocolate

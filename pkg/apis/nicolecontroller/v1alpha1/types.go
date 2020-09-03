@@ -34,8 +34,6 @@ type Icecream struct {
 
 // IcecreamSpec is the spec for an Icecream resource
 type IcecreamSpec struct {
-	DeploymentName string `json:"deploymentName"`
-	Replicas       *int32 `json:"replicas"`
 	Flavor         string `json:"flavor"`
 }
 
