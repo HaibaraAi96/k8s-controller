@@ -125,11 +125,8 @@ func NewIcecreamController(
 			controller.enqueueIcecream(new)
 		},
 	})
-	// Set up an event handler for when Pod resources change. This
-	// handler will lookup the owner of the given Pod, and if it is
-	// owned by an Icecream resource will enqueue that Icecream resource for
-	// processing. This way, we don't need to implement custom logic for
-	// handling Pod resources.
+
+	// Set up an event handler for when Pod resources change.
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: controller.handleObject,
 		UpdateFunc: func(old, new interface{}) {
@@ -259,9 +256,8 @@ func (c *IcecreamController) processNextWorkItem() bool {
 	return true
 }
 
-// syncHandler compares the actual state with the desired, and attempts to
-// converge the two. It then updates the Status block of the Icecream resource
-// with the current status of the resource.
+// syncHandler implements the logic of the controller. It compares the actual state with the desired, and attempts to
+// converge the two. It then updates the Status block of the Icecream resource with the current status of the resource.
 func (c *IcecreamController) syncHandler(key string) error {
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
