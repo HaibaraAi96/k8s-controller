@@ -32,13 +32,13 @@ import (
 
 // FakeIcecreams implements IcecreamInterface
 type FakeIcecreams struct {
-	Fake *FakeSamplecontrollerV1alpha1
+	Fake *FakeControllerV1alpha1
 	ns   string
 }
 
-var icecreamsResource = schema.GroupVersionResource{Group: "samplecontroller.k8s.io", Version: "v1alpha1", Resource: "icecreams"}
+var icecreamsResource = schema.GroupVersionResource{Group: "controller.nicoleh.io", Version: "v1alpha1", Resource: "icecreams"}
 
-var icecreamsKind = schema.GroupVersionKind{Group: "samplecontroller.k8s.io", Version: "v1alpha1", Kind: "Icecream"}
+var icecreamsKind = schema.GroupVersionKind{Group: "controller.nicoleh.io", Version: "v1alpha1", Kind: "Icecream"}
 
 // Get takes name of the icecream, and returns the corresponding icecream object, and an error if there is any.
 func (c *FakeIcecreams) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Icecream, err error) {

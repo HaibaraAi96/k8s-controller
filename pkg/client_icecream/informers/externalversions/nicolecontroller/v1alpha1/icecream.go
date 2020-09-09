@@ -62,13 +62,13 @@ func NewFilteredIcecreamInformer(client versioned.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SamplecontrollerV1alpha1().Icecreams(namespace).List(context.TODO(), options)
+				return client.ControllerV1alpha1().Icecreams(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.SamplecontrollerV1alpha1().Icecreams(namespace).Watch(context.TODO(), options)
+				return client.ControllerV1alpha1().Icecreams(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&nicolecontrollerv1alpha1.Icecream{},

@@ -24,17 +24,17 @@ import (
 	v1alpha1 "k8s.io/k8s-controller/pkg/client_icecream/clientset/versioned/typed/nicolecontroller/v1alpha1"
 )
 
-type FakeSamplecontrollerV1alpha1 struct {
+type FakeControllerV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeSamplecontrollerV1alpha1) Icecreams(namespace string) v1alpha1.IcecreamInterface {
+func (c *FakeControllerV1alpha1) Icecreams(namespace string) v1alpha1.IcecreamInterface {
 	return &FakeIcecreams{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeSamplecontrollerV1alpha1) RESTClient() rest.Interface {
+func (c *FakeControllerV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }
