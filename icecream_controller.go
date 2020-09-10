@@ -22,21 +22,17 @@ import (
 	"strconv"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	appsinformers "k8s.io/client-go/informers/apps/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	appslisters "k8s.io/client-go/listers/apps/v1"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -55,13 +51,6 @@ const icecreamControllerAgentName = "nicole-controller"
 const (
 	// IcecreamSuccessSynced is used as part of the Event 'reason' when a Icecream is synced
 	IcecreamSuccessSynced = "Synced"
-	// IcecreamErrResourceExists is used as part of the Event 'reason' when a Icecream fails
-	// to sync due to a Deployment of the same name already existing.
-	IcecreamErrResourceExists = "ErrResourceExists"
-
-	// IcecreamMessageResourceExists is the message used for Events when a resource
-	// fails to sync due to a Deployment already existing
-	IcecreamMessageResourceExists = "Resource %q already exists and is not managed by Icecream"
 	// IcecreamMessageResourceSynced is the message used for an Event fired when a Icecream
 	// is synced successfully
 	IcecreamMessageResourceSynced = "Icecream synced successfully"
@@ -73,9 +62,6 @@ type IcecreamController struct {
 	kubeclientset kubernetes.Interface
 	// sampleclientset is a clientset for our own API group
 	sampleclientset clientset.Interface
-
-	deploymentsLister appslisters.DeploymentLister
-	deploymentsSynced cache.InformerSynced
 
 	podsLister      corelisters.PodLister
 	podsSynced      cache.InformerSynced
@@ -91,7 +77,6 @@ func NewIcecreamController(
 	kubeclientset kubernetes.Interface,
 	sampleclientset clientset.Interface,
 	podInformer coreinformers.PodInformer,
-	deploymentInformer appsinformers.DeploymentInformer,
 	icecreamInformer informers.IcecreamInformer) *IcecreamController {
 
 	// Create event broadcaster
@@ -105,16 +90,14 @@ func NewIcecreamController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: icecreamControllerAgentName})
 
 	controller := &IcecreamController{
-		kubeclientset:     kubeclientset,
-		sampleclientset:   sampleclientset,
-		deploymentsLister: deploymentInformer.Lister(),
-		deploymentsSynced: deploymentInformer.Informer().HasSynced,
-		podsLister:        podInformer.Lister(),
-		podsSynced:        podInformer.Informer().HasSynced,
-		icecreamsLister:   icecreamInformer.Lister(),
-		icecreamsSynced:   icecreamInformer.Informer().HasSynced,
-		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Icecreams"),
-		recorder:          recorder,
+		kubeclientset:   kubeclientset,
+		sampleclientset: sampleclientset,
+		podsLister:      podInformer.Lister(),
+		podsSynced:      podInformer.Informer().HasSynced,
+		icecreamsLister: icecreamInformer.Lister(),
+		icecreamsSynced: icecreamInformer.Informer().HasSynced,
+		workqueue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Icecreams"),
+		recorder:        recorder,
 	}
 
 	klog.Info("Setting up event handlers")
@@ -137,23 +120,7 @@ func NewIcecreamController(
 				// Two different versions of the same Pod will always have different RVs.
 				return
 			}
-			controller.handleObject(new)
-		},
-		DeleteFunc: controller.handleObject,
-	})
-
-	// Set up an event handler for when Deployment resources change.
-	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
-		UpdateFunc: func(old, new interface{}) {
-			newDepl := new.(*appsv1.Deployment)
-			oldDepl := old.(*appsv1.Deployment)
-			if newDepl.ResourceVersion == oldDepl.ResourceVersion {
-				// Periodic resync will send update events for all known Deployments.
-				// Two different versions of the same Deployment will always have different RVs.
-				return
-			}
-			klog.Infof("Trying to update the deployment ...")
+			klog.Infof("Trying to update the pod ...")
 			controller.handleObject(new)
 		},
 		DeleteFunc: controller.handleObject,
@@ -175,7 +142,7 @@ func (c *IcecreamController) Run(threadiness int, stopCh <-chan struct{}) error 
 
 	// Wait for the caches to be synced before starting workers
 	klog.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced, c.deploymentsSynced, c.icecreamsSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced, c.icecreamsSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -223,7 +190,7 @@ func (c *IcecreamController) processNextWorkItem() bool {
 		var ok bool
 		// We expect strings to come off the workqueue. These are of the
 		// form namespace/name. We do this as the delayed nature of the
-		// workqueue means the items in the informer cache may actually be
+		// workqueue meafns the items in the informer cache may actually be
 		// more up to date that when the item was initially put onto the
 		// workqueue.
 		if key, ok = obj.(string); !ok {
@@ -288,33 +255,13 @@ func (c *IcecreamController) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get the deployment with the name specified
-	deployment, err := c.deploymentsLister.Deployments(icecream.Namespace).Get("icecream-deployment")
-	// If the resource doesn't exist, we'll create it
-	if errors.IsNotFound(err) {
-		deployment, err = c.kubeclientset.AppsV1().Deployments(icecream.Namespace).Create(context.TODO(), newIcecreamDeployment(icecream), metav1.CreateOptions{})
-		klog.Infof("New deployment succesfully created: %v", deployment.GetName())
+	// Get selected pods in the same namespace with the matching label based on "flavor"
+	matchingLabels := map[string]string{
+		"ice-cream-flavor": icecream.Spec.Flavor,
 	}
-
-	// If an error occurs during Get/Create, we'll requeue the item so we can
-	// attempt processing again later. This could have been caused by a
-	// temporary network failure, or any other transient reason.
+	pods, err := c.podsLister.Pods(namespace).List(labels.SelectorFromSet(labels.Set(matchingLabels)))
 	if err != nil {
-		return err
-	}
-
-	// If the Deployment is not controlled by this Icercream resource, we should log
-	// a warning to the event recorder and return error msg.
-	if !metav1.IsControlledBy(deployment, icecream) {
-		msg := fmt.Sprintf(IcecreamMessageResourceExists, deployment.Name)
-		c.recorder.Event(icecream, corev1.EventTypeWarning, IcecreamErrResourceExists, msg)
-		return fmt.Errorf(msg)
-	}
-
-	// Get pods in the same namespace
-	pods, err := c.podsLister.Pods(namespace).List(labels.Everything())
-	if err != nil {
-		klog.Infof("Error while listing pods in the same namespace: %v", err)
+		klog.Infof("Error while listing matching pods in the same namespace with correct label: %v", err)
 		return nil
 	}
 	if len(pods) == 0 {
@@ -322,25 +269,9 @@ func (c *IcecreamController) syncHandler(key string) error {
 		return nil
 	}
 
-	// Get selected pods in the same namespace with the matching label based on "flavor"
-	var selectedPods []*v1.Pod
-	for _, pod := range pods {
-		for key, value := range pod.Labels {
-			if key == "ice-cream-flavor" && value == flavor {
-				selectedPods = append(selectedPods, pod)
-				continue
-			}
-		}
-	}
-
-	if len(selectedPods) == 0 {
-		klog.Infof("ERROR - Could not find matching pods in the same namespace with maching labels")
-		return nil
-	}
-
 	// Finally, we update the status block of the Icecream resource to reflect the
 	// current state of the world
-	err = c.updateIcecreamStatus(icecream, selectedPods)
+	err = c.updateIcecreamStatus(icecream, pods)
 	if err != nil {
 		return err
 	}
@@ -382,11 +313,9 @@ func (c *IcecreamController) updateIcecreamStatus(icecream *nicolev1alpha1.Icecr
 	icecreamCopy.Status.TotalAllocatedCPU = strconv.FormatInt(totalAllocatedCPU, 10)
 	icecreamCopy.Status.TotalAllocatedMemory = strconv.FormatInt(totalAllocatedMemory, 10)
 
-	// If the CustomResourceSubresources feature gate is not enabled,
-	// we must use Update instead of UpdateStatus to update the Status block of the Icecream resource.
 	// UpdateStatus will not allow changes to the Spec of the resource,
 	// which is ideal for ensuring nothing other than resource status has been updated.
-	_, err := c.sampleclientset.SamplecontrollerV1alpha1().Icecreams(icecream.Namespace).Update(context.TODO(), icecreamCopy, metav1.UpdateOptions{})
+	_, err := c.sampleclientset.ControllerV1alpha1().Icecreams(icecream.Namespace).UpdateStatus(context.TODO(), icecreamCopy, metav1.UpdateOptions{})
 	return err
 }
 
@@ -440,56 +369,5 @@ func (c *IcecreamController) handleObject(obj interface{}) {
 
 		c.enqueueIcecream(icecream)
 		return
-	}
-}
-
-// newIcecreamDeployment creates a new Deployment for an Icecream resource. It also sets
-// the appropriate OwnerReferences on the resource so handleObject can discover
-// the Icecream resource that 'owns' it.
-func newIcecreamDeployment(icecream *nicolev1alpha1.Icecream) *appsv1.Deployment {
-	labels := map[string]string{
-		"ice-cream-flavor": icecream.Spec.Flavor,
-	}
-	limitCPU := "500m"
-	limitMem := "128Mi"
-	replicas := int32(3)
-
-	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "icecream-deployment",
-			Namespace: icecream.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(icecream, nicolev1alpha1.SchemeGroupVersion.WithKind("Icecream")),
-			},
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "nginx",
-							Image: "nginx:latest",
-							Resources: corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("200m"),
-									corev1.ResourceMemory: resource.MustParse("64Mi"),
-								},
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse(limitCPU),
-									corev1.ResourceMemory: resource.MustParse(limitMem),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }

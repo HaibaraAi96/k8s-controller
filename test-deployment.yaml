@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment                 
+metadata:
+  name: test-deployment         
+spec:
+  replicas: 2                    # Number of pods to run at any given time
+  selector:
+    matchLabels:
+      ice-cream-flavor: chocolate        # This deployment applies to any Pods matching the specified label
+  template:                      # This deployment will create a set of pods using the configurations in this template
+    metadata:
+      labels:                    # The labels that will be applied to all of the pods in this deployment
+        ice-cream-flavor: chocolate
+    spec:                        # Spec for the container which will run in the Pod
+      containers:
+      - name: icecream-controller
+        image: nginx
+        imagePullPolicy: Always
+        ports:
+          - containerPort: 8087  # Should match the port number that the Go application listens on

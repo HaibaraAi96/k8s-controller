@@ -57,7 +57,7 @@ type icecreams struct {
 }
 
 // newIcecreams returns a Icecreams
-func newIcecreams(c *SamplecontrollerV1alpha1Client, namespace string) *icecreams {
+func newIcecreams(c *ControllerV1alpha1Client, namespace string) *icecreams {
 	return &icecreams{
 		client: c.RESTClient(),
 		ns:     namespace,
